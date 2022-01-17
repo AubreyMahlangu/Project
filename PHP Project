@@ -1,0 +1,287 @@
+
+
+1.1
+
+<html>
+<head>
+<script type="text/javascript">
+function validateForm()
+{
+var deptno=document.forms["frmAdd"]["deptno"].value;
+var dname=document.forms["frmAdd"]["dname"].value;
+var mgrno=document.forms["frmAdd"]["mgrno"].value;
+var locno=document.forms["frmAdd"]["locno"].value;
+if (deptno==null || deptno==""){
+  alert("Please enter Department No");
+  return false;
+  }
+if (dname==null || dname==""){
+  alert("Please enter Department Name");
+  return false;
+  }
+if (locno==null || locno==""){
+  alert("Please enter Location No");
+  return false;
+  }
+}
+</script>
+</head>
+<body>
+<?php
+if (isset($_POST['btnSave']))
+{
+	$objConnect = oci_connect("system","oracle","localhost/XE");
+	$strSQL = "SELECT COUNT(LOCATION_ID) TOTAL FROM LOCATIONS WHERE LOCATION_ID = ".$_POST["locno"];
+    $objParse = oci_parse($objConnect, $strSQL);	
+    $objExecute = oci_execute($objParse);
+    $objResult = oci_fetch_array($objParse);
+    $count = $objResult["TOTAL"];
+    if ($count > 0)
+	{
+		if (empty($_POST["mgrno"]))
+			$mgrno = "NULL";
+		else
+			$mgrno = $_POST["mgrno"];
+		$strSQL = "INSERT INTO DEPARTMENTS ";
+		$strSQL .="VALUES ";
+		$strSQL .="(".$_POST["deptno"].",'".$_POST["dname"]."',".$mgrno;
+		$strSQL .=",".$_POST["locno"].")";
+		$objParse = oci_parse($objConnect, $strSQL);
+		$objExecute = oci_execute($objParse, OCI_DEFAULT);
+		if($objExecute)
+		{
+			oci_commit($objConnect);
+			echo "Record added successfully.";
+		}
+		else
+		{
+			oci_rollback($objConnect);
+			$e = oci_error($objParse); 
+			echo "Error Save [".$e['message']."]";
+		}
+		oci_close($objConnect);
+	}else
+		echo "Location No: " .$_POST["locno"]. " does not exist.\n";
+}
+?>
+<div align="left">
+<form name="frmAdd" method="post" action="<?=$_SERVER["PHP_SELF"];?>" onSubmit="return validateForm();">
+<table border="1">
+<tr><td><strong>Department No:</strong></td><td><input type="text" name="deptno"></td></tr>
+<tr><td><strong>Department Name:</td><td><input type="text" name="dname"></td></tr>
+<tr><td><strong>Manager No:</strong></td><td><input type="text" name="mgrno"></td></tr>
+<tr><td><strong>Location No:</strong></td><td><input type="text" name="locno"></td></tr>
+<tr>
+<td></td>
+<td><input type="Submit" name="btnSave" value="Save"></td>
+</tr>
+</table>
+</form>
+</div>
+</body>
+</html>
+
+
+1.2
+
+<html>
+<body>
+	<div>
+	<?php
+	$objConnect = oci_connect("system","oracle","localhost/XE");
+	$strSQL = "SELECT LOCATION_ID FROM LOCATIONS ORDER BY LOCATION_ID ASC ";
+	$objParse = oci_parse ($objConnect, $strSQL);
+	oci_execute ($objParse);
+	?>
+	<form name="form1" method="post" action="Question1_2.php">
+	<label><strong>LOCATION AND DEPARTMENTS INFORMATION:</strong></label>
+	<p>
+	  <label>Location No 
+	  <select name="select">
+		<option value="ALL" >ALL</option>
+		<?php
+		   while($objResult = oci_fetch_array($objParse,OCI_BOTH)) 
+		   {
+				$selected = '';
+				if(isset($_POST['select']) and $_POST['select'] == $objResult["LOCATION_ID"]) {
+					$selected = ' selected="selected"'; 
+				}
+			
+			 echo '<option value="'.$objResult["LOCATION_ID"].'"'.$selected.'>'.$objResult["LOCATION_ID"].'</option>';
+		   }
+		?>
+	  </select>
+	  </label>
+	  <input type="submit" name="btnSearch" value="Search">
+	  </p>
+	</form>
+	</div>
+
+	<div>
+	<?php
+	if (isset($_POST['btnSearch'])) {
+		if ($_POST['select'] == 'ALL')
+			$strSQL = "SELECT * FROM DEPARTMENTS ORDER BY DEPARTMENT_ID ASC";
+		else
+			$strSQL = "SELECT * FROM DEPARTMENTS WHERE LOCATION_ID = ". $_POST['select'];
+	}
+	else
+		$strSQL = "SELECT * FROM DEPARTMENTS ORDER BY DEPARTMENT_ID ASC";	
+	
+	$objParse1 = oci_parse ($objConnect, $strSQL);
+	oci_execute ($objParse1);
+	?>
+	<form name="form2" action="Modify.php" method="post" >
+	<table width="874" border="1">
+	<tr>
+	<th width="63"> <div align="center">Delete </div></th>
+	<th width="90"> <div align="center">Department No </div></th>
+	<th width="114"> <div align="center">Department Name </div></th>
+	<th width="92"> <div align="center">Manager No </div></th>
+	<th width="90"> <div align="center">Location No </div></th>
+	<th width="63"> <div align="center">Modify </div></th>
+	</tr>
+	<?php
+	while($objResult = oci_fetch_array($objParse1,OCI_BOTH))
+	{
+	?>
+	<tr>
+	<td align="center"><input type="checkbox" name="chkDel[]" value="<?=$objResult["DEPARTMENT_ID"];?>"></td>
+	<td width="90"><div align="center"><?=$objResult["DEPARTMENT_ID"];?></div></td>
+	<td align="center"><?=$objResult["DEPARTMENT_NAME"];?></td>
+	<td align="center"><?=$objResult["MANAGER_ID"];?></td>
+	<td align="center"><?=$objResult["LOCATION_ID"];?></td>
+	<td align="center"><a href="Modify.php?deptno=<?=$objResult["DEPARTMENT_ID"];?>">Edit</a></td>
+	</tr>
+	<?php
+	}
+	?>
+	</table>
+	<br>
+	<input type="submit" name="btnDelete" value="Delete">
+	</form>
+	</div>
+</body>
+</html>
+
+
+Modify.php
+==========
+
+<?php
+$objConnect = oci_connect("system","oracle","localhost/XE");
+if (isset($_POST['btnDelete'])){
+	if(count($_POST["chkDel"]) > 0){
+		for($i=0;$i<count($_POST["chkDel"]);$i++){
+           if($_POST["chkDel"][$i] != ""){
+		   
+			   $strSQL = "SELECT COUNT(DEPARTMENT_ID) TOTAL FROM EMPLOYEES WHERE DEPARTMENT_ID = ".$_POST["chkDel"][$i];
+               $objParse = oci_parse($objConnect, $strSQL);	
+               $objExecute = oci_execute($objParse);
+			   $objResult = oci_fetch_array($objParse);
+			   $count = $objResult["TOTAL"];
+			   if ($count <= 0){	
+               		$strSQL = "DELETE FROM DEPARTMENTS WHERE DEPARTMENT_ID = ".$_POST["chkDel"][$i];
+               		$objParse1 = oci_parse($objConnect, $strSQL);	
+               		$objExecute1 = oci_execute($objParse1);
+					if($objExecute1)
+						echo "Department No: " .$_POST["chkDel"][$i]. " deleted successfully.\n";
+			   }else
+			   		echo "Department No: " .$_POST["chkDel"][$i]. " has employees attached.\n";	
+            }
+        }
+	}else{
+		echo "Please select any record(s) you want to delete.\n";}
+}elseif (isset($_POST['btnUpdate'])){
+$strSQL = "UPDATE DEPARTMENTS SET";
+$strSQL .=" DEPARTMENT_NAME = '".$_POST["dname"]."' ";
+$strSQL .=", MANAGER_ID = ".$_POST["mgrno"]." ";
+$strSQL .=", LOCATION_ID = ".$_POST["locid"]." ";
+$strSQL .=" WHERE DEPARTMENT_ID = ".$_GET["deptno"];
+$objParse = oci_parse($objConnect, $strSQL);
+$objExecute = oci_execute($objParse);
+if($objExecute){
+	echo "Location record updated successfully.";}
+}else{
+$strSQL = "SELECT * FROM DEPARTMENTS WHERE DEPARTMENT_ID = ".$_GET["deptno"];
+$objParse = oci_parse ($objConnect, $strSQL);
+oci_execute ($objParse);
+$objResult = oci_fetch_array($objParse);
+?>
+<form name="frmEdit" action="Modify.php?deptno=<?=$objResult["DEPARTMENT_ID"];?>" method="post">
+<table border="1">
+<tr><td>Department No</td><td><input type="text" name="deptno" disabled value="<?=$objResult["DEPARTMENT_ID"];?>"></td></tr>
+<tr><td>Department Name</td><td><input type="text" name="dname" value="<?=$objResult["DEPARTMENT_NAME"];?>"></td></tr>
+<tr><td>Manager No</td><td><input type="text" name="mgrno" value="<?=$objResult["MANAGER_ID"];?>"></td></tr>
+<tr><td>Location No</td><td><input type="text" name="locid" value="<?=$objResult["LOCATION_ID"];?>"></td></tr>
+</table>
+<br>
+<input type="submit" name="btnUpdate" value="Update">
+</form>
+</body>
+</html>
+<?php
+}
+?>
+
+
+----------------------
+
+CREATE OR REPLACE PROCEDURE get_dept_report
+(dept_cur OUT SYS_REFCURSOR)
+
+AS
+
+BEGIN
+
+OPEN dept_cur FOR
+SELECT 	d.DEPARTMENT_ID, DEPARTMENT_NAME, SUBSTR(m.FIRST_NAME,1,1) AS FIRST_NAME, m.LAST_NAME, CITY, COUNT(*) AS Total_Staff, SUM(e.SALARY) AS Total_Budget
+FROM EMPLOYEES e, DEPARTMENTS d, EMPLOYEES m, LOCATIONS l
+WHERE e.DEPARTMENT_ID = d.DEPARTMENT_ID
+AND d.MANAGER_ID = m.EMPLOYEE_ID
+AND d.LOCATION_ID = l.LOCATION_ID
+GROUP BY d.DEPARTMENT_ID, DEPARTMENT_NAME, m.FIRST_NAME, m.LAST_NAME, CITY
+ORDER BY d.DEPARTMENT_ID;
+
+END get_dept_report;
+/
+
+<?php
+$filename = "Department.txt";
+$file = fopen( $filename, "w" );
+if( $file == false )
+{
+echo ( "Error in opening new file" );
+exit();
+}
+
+$objConnect = oci_connect("system","oracle","localhost/XE");
+
+// Excute the call to the PL/SQL stored procedure
+$objParse=oci_parse($objConnect, "call get_dept_report(:rc)");
+$refcur=oci_new_cursor($objConnect); 
+oci_bind_by_name($objParse, ':rc', $refcur, -1, OCI_B_CURSOR);
+oci_execute($objParse);
+
+// Execute and fetch from the cursor
+oci_execute($refcur);
+
+$olddeptno = 0;
+fwrite($file, "REPORT: Department Information 	GENERATED ON: ". date('d-m-y') . "\r\n");
+while($row = oci_fetch_array($refcur, OCI_ASSOC)) { 
+$newdeptno = $row['DEPARTMENT_ID'];
+if ($newdeptno <> $olddeptno){
+$Header = "\r\n" . "DEPARTMENT: ". $newdeptno . "-" . $row['DEPARTMENT_NAME'] . " MANAGER: " . $row['FIRST_NAME'] . " " . $row['LAST_NAME'] . " LOCATION: " . $row['CITY'] . "\r\n";
+fwrite($file, $Header);
+}
+$Result = "Total Staff: " . $row['TOTAL_STAFF'] . " Total Budget:" . $row['TOTAL_BUDGET'] . "\r\n";
+fwrite($file, $Result);
+$olddeptno = $newdeptno;
+}
+fwrite($file, "\r\n" . "*** END OF REPORT ***");
+fclose( $file );
+?>
+
+
+
+
